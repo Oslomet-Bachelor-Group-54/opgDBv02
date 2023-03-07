@@ -120,7 +120,7 @@ class EdgeIndexIteratorMock final : public arangodb::IndexIterator {
       }
 
       std::tie(_begin, _end) = _map.equal_range(key.toString());
-      _keysIt++;
+      ++_keysIt;
       return true;
     } else {
       // Just make sure begin and end are equal
@@ -1615,6 +1615,12 @@ arangodb::HealthData StorageEngineMock::healthCheck() { return {}; }
 arangodb::WalAccess const* StorageEngineMock::walAccess() const {
   TRI_ASSERT(false);
   return nullptr;
+}
+
+bool StorageEngineMock::autoRefillIndexCaches() const { return false; }
+
+bool StorageEngineMock::autoRefillIndexCachesOnFollowers() const {
+  return false;
 }
 
 void StorageEngineMock::addOptimizerRules(

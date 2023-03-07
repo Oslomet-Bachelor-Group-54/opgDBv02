@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2023 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -2689,7 +2689,8 @@ AqlValue functions::Substitute(ExpressionContext* expressionContext,
     VPackSlice slice = materializer.slice(search, false);
     matchPatterns.reserve(slice.length());
     replacePatterns.reserve(slice.length());
-    for (auto it : VPackObjectIterator(slice)) {
+    for (auto it :
+         VPackObjectIterator(slice, /*useSequentialIteration*/ true)) {
       velocypack::ValueLength length;
       char const* str = it.key.getString(length);
       matchPatterns.push_back(
@@ -5130,20 +5131,33 @@ AqlValue functions::Sleep(ExpressionContext* expressionContext, AstNode const&,
   auto& server = expressionContext->vocbase().server();
 
   double const sleepValue = value.toDouble();
-  auto now = std::chrono::steady_clock::now();
-  auto const endTime = now + std::chrono::milliseconds(
-                                 static_cast<int64_t>(sleepValue * 1000.0));
 
-  while (now < endTime) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  if (sleepValue < 0.010) {
+    // less than 10 ms sleep time
+    std::this_thread::sleep_for(std::chrono::duration<double>(sleepValue));
 
     if (expressionContext->killed()) {
       THROW_ARANGO_EXCEPTION(TRI_ERROR_QUERY_KILLED);
     } else if (server.isStopping()) {
       THROW_ARANGO_EXCEPTION(TRI_ERROR_SHUTTING_DOWN);
     }
-    now = std::chrono::steady_clock::now();
+  } else {
+    auto now = std::chrono::steady_clock::now();
+    auto const endTime = now + std::chrono::milliseconds(
+                                   static_cast<int64_t>(sleepValue * 1000.0));
+
+    while (now < endTime) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+      if (expressionContext->killed()) {
+        THROW_ARANGO_EXCEPTION(TRI_ERROR_QUERY_KILLED);
+      } else if (server.isStopping()) {
+        THROW_ARANGO_EXCEPTION(TRI_ERROR_SHUTTING_DOWN);
+      }
+      now = std::chrono::steady_clock::now();
+    }
   }
+
   return AqlValue(AqlValueHintNull());
 }
 
@@ -8810,7 +8824,11 @@ AqlValue functions::PregelResult(ExpressionContext* expressionContext,
       registerWarning(expressionContext, AFN, TRI_ERROR_HTTP_NOT_FOUND);
       return AqlValue(AqlValueHintEmptyArray());
     }
-    worker->aqlResult(builder, withId);
+    auto results = worker->aqlResult(withId);
+    {
+      VPackArrayBuilder ab(&builder);
+      builder.add(VPackArrayIterator(results.results.slice()));
+    }
   }
 
   if (builder.isEmpty()) {
@@ -9126,7 +9144,7 @@ AqlValue functions::Interleave(aql::ExpressionContext* expressionContext,
     VPackArrayIterator end;
   };
 
-  std::list<ArrayIteratorPair> iters;
+  std::list<velocypack::ArrayIterator> iters;
   std::vector<AqlValueMaterializer> materializers;
   materializers.reserve(parameters.size());
 
@@ -9142,9 +9160,7 @@ AqlValue functions::Interleave(aql::ExpressionContext* expressionContext,
       continue;  // skip empty array here
     }
 
-    VPackArrayIterator iter(slice);
-    ArrayIteratorPair pair{iter.begin(), iter.end()};
-    iters.emplace_back(pair);
+    iters.emplace_back(velocypack::ArrayIterator(slice));
   }
 
   transaction::BuilderLeaser builder(trx);
@@ -9152,10 +9168,10 @@ AqlValue functions::Interleave(aql::ExpressionContext* expressionContext,
 
   while (!iters.empty()) {  // in this loop we only deal with nonempty arrays
     for (auto i = iters.begin(); i != iters.end();) {
-      builder->add(i->current.value());  // thus this will always be valid on
-                                         // the first iteration
-      i->current++;
-      if (i->current == i->end) {
+      builder->add(i->value());  // thus this will always be valid on
+                                 // the first iteration
+      i->next();
+      if (*i == std::default_sentinel) {
         i = iters.erase(i);
       } else {
         i++;
@@ -9300,7 +9316,8 @@ AqlValue functions::MakeDistributeInputWithKeyCreation(
         *builder,
         std::string_view(logicalCollection->keyGenerator().generate(input)),
         /*closeObject*/ false);
-    for (auto cur : VPackObjectIterator(input)) {
+    for (auto cur :
+         VPackObjectIterator(input, /*useSequentialIteration*/ true)) {
       builder->add(cur.key.stringView(), cur.value);
     }
     builder->close();

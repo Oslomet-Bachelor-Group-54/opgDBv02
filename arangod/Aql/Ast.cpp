@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2023 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,9 +20,6 @@
 ///
 /// @author Jan Steemann
 ////////////////////////////////////////////////////////////////////////////////
-
-#include <velocypack/Iterator.h>
-#include <velocypack/Slice.h>
 
 #include "Ast.h"
 
@@ -57,8 +54,12 @@
 #include "Utilities/NameValidator.h"
 #include "VocBase/LogicalCollection.h"
 #include "VocBase/LogicalView.h"
+#include "V8Server/V8DealerFeature.h"
 
 #include <absl/strings/str_cat.h>
+
+#include <velocypack/Iterator.h>
+#include <velocypack/Slice.h>
 
 using namespace arangodb;
 using namespace arangodb::aql;
@@ -1884,12 +1885,26 @@ AstNode* Ast::createNodeFunctionCall(std::string_view functionName,
       _functionsMayAccessDocuments = true;
     }
   } else {
-    // user-defined function
+    // user-defined function (UDF)
+    if (_query.vocbase().server().hasFeature<V8DealerFeature>() &&
+        !_query.vocbase()
+             .server()
+             .getFeature<V8DealerFeature>()
+             .allowJavaScriptUdfs()) {
+      // usage of user-defined functions is disallowed
+      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_QUERY_PARSE,
+                                     "usage of AQL user-defined functions "
+                                     "(UDFs) is disallowed via configuration");
+    }
+
     node = createNode(NODE_TYPE_FCALL_USER);
     // register the function name
     char* fname = _resources.registerString(normalized);
     node->setStringValue(fname, normalized.size());
 
+    // a JavaScript user-defined function can potentially read documents
+    // via JavaScript document or AQL APIs. we don't know for sure, so we
+    // need to assume the worst case here.
     _functionsMayAccessDocuments = true;
   }
 
@@ -2961,6 +2976,8 @@ AstNode* Ast::clone(AstNode const* node) {
 }
 
 AstNode* Ast::shallowCopyForModify(AstNode const* node) {
+  TRI_ASSERT(node != nullptr);
+
   AstNodeType const type = node->type;
   if (type == NODE_TYPE_NOP) {
     // nop node is a singleton
@@ -2979,7 +2996,7 @@ AstNode* Ast::shallowCopyForModify(AstNode const* node) {
   // copy payload...
   copyPayload(node, copy);
 
-  // recursively add subnodes
+  // add subnodes, non-recursively
   size_t const n = node->numMembers();
   copy->members.reserve(n);
   for (size_t i = 0; i < n; ++i) {
@@ -4362,7 +4379,7 @@ void Ast::addWriteCollection(AstNode const* node, bool isExclusiveAccess) {
   _writeCollections.emplace_back(node, isExclusiveAccess);
 }
 
-bool Ast::functionsMayAccessDocuments() const {
+bool Ast::functionsMayAccessDocuments() const noexcept {
   return _functionsMayAccessDocuments;
 }
 

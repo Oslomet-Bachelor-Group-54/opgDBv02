@@ -132,6 +132,7 @@ add_library(arangoserver STATIC
   RestServer/FortuneFeature.cpp
   RestServer/FrontendFeature.cpp
   RestServer/InitDatabaseFeature.cpp
+  RestServer/IOHeartbeatThread.cpp
   RestServer/LanguageCheckFeature.cpp
   RestServer/LockfileFeature.cpp
   RestServer/LogBufferFeature.cpp
@@ -204,6 +205,7 @@ target_link_libraries(arangoserver
   arango_geo
   arango_graph
   arango_indexes
+  arango_inspection
   arango_iresearch
   arango_metrics
   arango_network

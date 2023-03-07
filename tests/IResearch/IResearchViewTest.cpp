@@ -130,11 +130,12 @@ struct DocIdScorer : public irs::sort {
       auto* doc = irs::get<irs::document>(doc_attrs);
       EXPECT_NE(nullptr, doc);
 
-      return {std::make_unique<ScoreCtx>(doc),
-              [](irs::score_ctx* ctx, irs::score_t* res) {
-                auto* state = static_cast<ScoreCtx*>(ctx);
-                *res = static_cast<irs::score_t>(state->_doc->value);
-              }};
+      return irs::ScoreFunction::Make<ScoreCtx>(
+          [](irs::score_ctx* ctx, irs::score_t* res) noexcept {
+            auto* state = static_cast<ScoreCtx*>(ctx);
+            *res = static_cast<irs::score_t>(state->_doc->value);
+          },
+          doc);
     }
   };
 
@@ -376,8 +377,8 @@ TEST_F(IResearchViewTest, test_defaults) {
           cids.emplace(cid);
           return true;
         });
-    EXPECT_TRUE((1 == cids.size()));
-    EXPECT_TRUE((false == logicalCollection->getIndexes().empty()));
+    EXPECT_EQ(1, cids.size());
+    EXPECT_FALSE(logicalCollection->getIndexes().empty());
 
     arangodb::iresearch::IResearchViewMeta expectedMeta;
     arangodb::velocypack::Builder builder;
@@ -2116,7 +2117,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2142,7 +2143,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(0 == snapshot->live_docs_count());
     }
   }
@@ -2195,7 +2196,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2221,7 +2222,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(0 == snapshot->live_docs_count());
     }
   }
@@ -2275,7 +2276,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2308,7 +2309,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(0 == snapshot->live_docs_count());
     }
 
@@ -2380,7 +2381,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2403,7 +2404,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2477,7 +2478,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2510,7 +2511,7 @@ TEST_F(IResearchViewTest, test_drop_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(0 == snapshot->live_docs_count());
     }
 
@@ -2670,7 +2671,7 @@ TEST_F(IResearchViewTest, test_truncate_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2696,7 +2697,7 @@ TEST_F(IResearchViewTest, test_truncate_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(0 == snapshot->live_docs_count());
     }
   }
@@ -2750,7 +2751,7 @@ TEST_F(IResearchViewTest, test_truncate_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(1 == snapshot->live_docs_count());
     }
 
@@ -2776,7 +2777,7 @@ TEST_F(IResearchViewTest, test_truncate_cid) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE(0 == snapshot->live_docs_count());
     }
   }
@@ -3279,7 +3280,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_EQ(2, snapshot->live_docs_count());
   }
 
@@ -3362,7 +3363,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_EQ(2, snapshot->live_docs_count());
   }
 
@@ -3417,7 +3418,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 
@@ -3474,7 +3475,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 
@@ -3523,7 +3524,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((1 == snapshot->docs_count()));
   }
 
@@ -3578,7 +3579,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 
@@ -3633,7 +3634,7 @@ TEST_F(IResearchViewTest, test_insert) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 }
@@ -3811,7 +3812,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_EQ(2, snapshot->live_docs_count());
   }
 
@@ -3893,7 +3894,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_EQ(2, snapshot->live_docs_count());
   }
 
@@ -3948,7 +3949,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 
@@ -4005,7 +4006,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 
@@ -4054,7 +4055,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((1 == snapshot->docs_count()));
   }
 
@@ -4109,7 +4110,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 
@@ -4164,7 +4165,7 @@ TEST_F(IResearchViewTest, test_remove) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE((4 == snapshot->docs_count()));
   }
 }
@@ -4221,7 +4222,7 @@ TEST_F(IResearchViewTest, test_query) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE(0 == snapshot->docs_count());
   }
 
@@ -4273,7 +4274,7 @@ TEST_F(IResearchViewTest, test_query) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE(12 == snapshot->docs_count());
   }
 
@@ -4329,7 +4330,7 @@ TEST_F(IResearchViewTest, test_query) {
     ASSERT_TRUE(trx0.state());
     auto* snapshot0 = makeViewSnapshot(
         trx0, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE(12 == snapshot0->docs_count());
 
     // add more data
@@ -4360,7 +4361,7 @@ TEST_F(IResearchViewTest, test_query) {
     ASSERT_TRUE(trx1.state());
     auto* snapshot1 = makeViewSnapshot(
         trx1, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     EXPECT_TRUE(24 == snapshot1->docs_count());
   }
 
@@ -4416,7 +4417,7 @@ TEST_F(IResearchViewTest, test_query) {
         ASSERT_TRUE(trx.state());
         auto* snapshot = makeViewSnapshot(
             trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-            view->getLinks(), view, view->name());
+            view->getLinks(nullptr), view, view->name());
         EXPECT_TRUE(i == snapshot->docs_count());
       }
     }
@@ -4565,7 +4566,7 @@ TEST_F(IResearchViewTest, test_register_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       EXPECT_TRUE((0 == snapshot->docs_count()));
     }
 
@@ -4592,7 +4593,7 @@ TEST_F(IResearchViewTest, test_register_link) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     ASSERT_TRUE(snapshot != nullptr);
     // link addition does trigger collection load
     EXPECT_TRUE(snapshot->docs_count() == 0);
@@ -4637,7 +4638,7 @@ TEST_F(IResearchViewTest, test_register_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       ASSERT_TRUE(snapshot == nullptr);
     }
 
@@ -4672,7 +4673,7 @@ TEST_F(IResearchViewTest, test_register_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       ASSERT_TRUE(snapshot != nullptr);
       // link addition does trigger collection load
       EXPECT_TRUE(snapshot->docs_count() == 0);
@@ -4715,7 +4716,7 @@ TEST_F(IResearchViewTest, test_register_link) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        view->getLinks(), view, view->name());
+        view->getLinks(nullptr), view, view->name());
     ASSERT_TRUE(snapshot != nullptr);
     EXPECT_TRUE(snapshot->docs_count() == 0);
     // link addition does trigger collection load
@@ -4809,7 +4810,7 @@ TEST_F(IResearchViewTest, test_unregister_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       ASSERT_TRUE(snapshot != nullptr);
       EXPECT_TRUE(snapshot->docs_count() == 1);
     }
@@ -4853,7 +4854,7 @@ TEST_F(IResearchViewTest, test_unregister_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       ASSERT_TRUE(snapshot != nullptr);
       EXPECT_TRUE(snapshot->docs_count() == 0);
     }
@@ -4928,7 +4929,7 @@ TEST_F(IResearchViewTest, test_unregister_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       ASSERT_TRUE(snapshot != nullptr);
       EXPECT_TRUE(snapshot->docs_count() == 1);
     }
@@ -4964,7 +4965,7 @@ TEST_F(IResearchViewTest, test_unregister_link) {
       ASSERT_TRUE(trx.state());
       auto* snapshot = makeViewSnapshot(
           trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-          view->getLinks(), view, view->name());
+          view->getLinks(nullptr), view, view->name());
       ASSERT_TRUE(snapshot != nullptr);
       EXPECT_TRUE(snapshot->docs_count() == 0);
     }
@@ -5899,9 +5900,9 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
         arangodb::transaction::StandaloneContext::Create(vocbase), EMPTY, EMPTY,
         EMPTY, arangodb::transaction::Options());
     ASSERT_TRUE(trx.state());
-    auto* snapshot =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshot = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == nullptr);
   }
 
@@ -5911,21 +5912,21 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
         arangodb::transaction::StandaloneContext::Create(vocbase), EMPTY, EMPTY,
         EMPTY, arangodb::transaction::Options());
     ASSERT_TRUE(trx.state());
-    auto* snapshot =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshot = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == nullptr);
     snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     ASSERT_TRUE(snapshot != nullptr);
-    auto* snapshotFind =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshotFind = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshotFind == snapshot);
     auto* snapshotCreate = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshotCreate == snapshot);
     EXPECT_TRUE(snapshot->live_docs_count() == 0);
   }
@@ -5937,9 +5938,9 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
     arangodb::transaction::Methods trx(
         arangodb::transaction::StandaloneContext::Create(vocbase), EMPTY, EMPTY,
         EMPTY, opts);
-    auto* snapshot =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshot = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == nullptr);
   }
 
@@ -5949,22 +5950,22 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
     arangodb::transaction::Methods trx(
         arangodb::transaction::StandaloneContext::Create(vocbase), EMPTY, EMPTY,
         EMPTY, opts);
-    auto* snapshot =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshot = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == nullptr);
     ASSERT_TRUE(trx.state());
     snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     ASSERT_TRUE(snapshot != nullptr);
-    auto* snapshotFind =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshotFind = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == snapshotFind);
     auto* snapshotCreate = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == snapshotCreate);
     EXPECT_TRUE((1 == snapshot->live_docs_count()));
   }
@@ -5990,9 +5991,9 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
         EMPTY, arangodb::transaction::Options());
     EXPECT_TRUE((true == viewImpl->apply(trx)));
     EXPECT_TRUE((true == trx.begin().ok()));
-    auto* snapshot =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+    auto* snapshot = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE((nullptr != snapshot));
     EXPECT_TRUE((1 == snapshot->live_docs_count()));
     EXPECT_TRUE(true == trx.abort().ok());  // prevent assertion in destructor
@@ -6007,13 +6008,13 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
     EXPECT_TRUE((true == trx.begin().ok()));
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
-    auto* snapshotFind =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
+    auto* snapshotFind = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     auto* snapshotCreate = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == snapshotFind);
     EXPECT_TRUE(snapshot == snapshotCreate);
     EXPECT_TRUE((nullptr != snapshot));
@@ -6034,10 +6035,10 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
     state->waitForSync(true);
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::FindOrCreate,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
-    auto* snapshotFind =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
+    auto* snapshotFind = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == snapshotFind);
     EXPECT_TRUE((nullptr != snapshot));
     EXPECT_TRUE((1 == snapshot->live_docs_count()));
@@ -6058,10 +6059,10 @@ TEST_F(IResearchViewTest, test_transaction_snapshot) {
     ASSERT_TRUE(trx.state());
     auto* snapshot = makeViewSnapshot(
         trx, arangodb::iresearch::ViewSnapshotMode::SyncAndReplace,
-        viewImpl->getLinks(), viewImpl, viewImpl->name());
-    auto snapshotFind =
-        makeViewSnapshot(trx, arangodb::iresearch::ViewSnapshotMode::Find,
-                         viewImpl->getLinks(), viewImpl, viewImpl->name());
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
+    auto snapshotFind = makeViewSnapshot(
+        trx, arangodb::iresearch::ViewSnapshotMode::Find,
+        viewImpl->getLinks(nullptr), viewImpl, viewImpl->name());
     EXPECT_TRUE(snapshot == snapshotFind);
     EXPECT_TRUE((nullptr != snapshot));
     EXPECT_TRUE((2 == snapshot->live_docs_count()));

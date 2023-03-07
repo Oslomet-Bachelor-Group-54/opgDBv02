@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2023 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -1590,7 +1590,7 @@ Result RocksDBEngine::prepareDropDatabase(TRI_vocbase_t& vocbase) {
 }
 
 Result RocksDBEngine::dropDatabase(TRI_vocbase_t& database) {
-  replicationManager()->drop(&database);
+  replicationManager()->drop(database);
 
   return dropDatabase(database.id());
 }
@@ -1602,8 +1602,7 @@ RecoveryState RocksDBEngine::recoveryState() noexcept {
 
 // current recovery tick
 TRI_voc_tick_t RocksDBEngine::recoveryTick() noexcept {
-  return TRI_voc_tick_t(
-      server().getFeature<RocksDBRecoveryManager>().recoverySequenceNumber());
+  return server().getFeature<RocksDBRecoveryManager>().recoverySequenceNumber();
 }
 
 void RocksDBEngine::scheduleTreeRebuild(TRI_voc_tick_t database,
@@ -1839,7 +1838,7 @@ void RocksDBEngine::createCollection(TRI_vocbase_t& vocbase,
 
 void RocksDBEngine::prepareDropCollection(TRI_vocbase_t& /*vocbase*/,
                                           LogicalCollection& coll) {
-  replicationManager()->drop(&coll);
+  replicationManager()->drop(coll);
 }
 
 arangodb::Result RocksDBEngine::dropCollection(TRI_vocbase_t& vocbase,
@@ -2331,9 +2330,10 @@ void RocksDBEngine::determinePrunableWalFiles(TRI_voc_tick_t minTickExternal) {
                                 : std::numeric_limits<TRI_voc_tick_t>::max(),
                minTickExternal);
 
-  LOG_TOPIC("4673c", TRACE, Logger::ENGINES)
+  LOG_TOPIC("4673c", DEBUG, Logger::ENGINES)
       << "determining prunable WAL files, minTickToKeep: " << minTickToKeep
-      << ", minTickExternal: " << minTickExternal;
+      << ", minTickExternal: " << minTickExternal
+      << ", releasedTick: " << _releasedTick;
 
   // Retrieve the sorted list of all wal files with earliest file first
   rocksdb::VectorLogPtr files;
@@ -2868,6 +2868,18 @@ void RocksDBEngine::scheduleFullIndexRefill(std::string const& database,
   f.scheduleFullIndexRefill(database, collection, iid);
 }
 
+bool RocksDBEngine::autoRefillIndexCaches() const {
+  RocksDBIndexCacheRefillFeature& f =
+      server().getFeature<RocksDBIndexCacheRefillFeature>();
+  return f.autoRefill();
+}
+
+bool RocksDBEngine::autoRefillIndexCachesOnFollowers() const {
+  RocksDBIndexCacheRefillFeature& f =
+      server().getFeature<RocksDBIndexCacheRefillFeature>();
+  return f.autoRefillOnFollowers();
+}
+
 void RocksDBEngine::syncIndexCaches() {
   RocksDBIndexCacheRefillFeature& f =
       server().getFeature<RocksDBIndexCacheRefillFeature>();
@@ -2895,6 +2907,12 @@ DECLARE_GAUGE(rocksdb_block_cache_capacity, uint64_t,
 DECLARE_GAUGE(rocksdb_block_cache_pinned_usage, uint64_t,
               "rocksdb_block_cache_pinned_usage");
 DECLARE_GAUGE(rocksdb_block_cache_usage, uint64_t, "rocksdb_block_cache_usage");
+#ifdef ARANGODB_ROCKSDB8
+// DECLARE_GAUGE(rocksdb_block_cache_entries, uint64_t,
+//                    "rocksdb_block_cache_entries");
+// DECLARE_GAUGE(rocksdb_block_cache_charge_per_entry, uint64_t,
+//                    "rocksdb_block_cache_charge_per_entry");
+#endif
 DECLARE_GAUGE(rocksdb_compaction_pending, uint64_t,
               "rocksdb_compaction_pending");
 DECLARE_GAUGE(rocksdb_compression_ratio_at_level0, uint64_t,
@@ -3103,6 +3121,25 @@ void RocksDBEngine::getStatistics(VPackBuilder& builder) const {
   addInt(rocksdb::DB::Properties::kBlockCacheCapacity);
   addInt(rocksdb::DB::Properties::kBlockCacheUsage);
   addInt(rocksdb::DB::Properties::kBlockCachePinnedUsage);
+
+#ifdef ARANGODB_ROCKSDB8
+  auto const& tableOptions = _optionsProvider.getTableOptions();
+  if (tableOptions.block_cache != nullptr) {
+    auto const& cache = tableOptions.block_cache;
+    auto usage = cache->GetUsage();
+    auto entries = cache->GetOccupancyCount();
+    if (entries > 0) {
+      builder.add("rocksdb.block-cache-charge-per-entry",
+                  VPackValue(static_cast<uint64_t>(usage / entries)));
+    } else {
+      builder.add("rocksdb.block-cache-charge-per-entry", VPackValue(0));
+    }
+    builder.add("rocksdb.block-cache-entries", VPackValue(entries));
+  } else {
+    builder.add("rocksdb.block-cache-entries", VPackValue(0));
+    builder.add("rocksdb.block-cache-charge-per-entry", VPackValue(0));
+  }
+#endif
 
   addIntAllCf(rocksdb::DB::Properties::kTotalSstFilesSize);
   addInt(rocksdb::DB::Properties::kActualDelayedWriteRate);
@@ -3357,7 +3394,7 @@ std::string RocksDBEngine::getCompressionSupport() const {
 
 // management methods for synchronizing with external persistent stores
 TRI_voc_tick_t RocksDBEngine::currentTick() const {
-  return static_cast<TRI_voc_tick_t>(_db->GetLatestSequenceNumber());
+  return _db->GetLatestSequenceNumber();
 }
 
 TRI_voc_tick_t RocksDBEngine::releasedTick() const {
@@ -3619,4 +3656,13 @@ auto RocksDBEngine::createReplicatedState(
   methods->updateMetadata(info);
   return {std::move(methods)};
 }
+
+std::shared_ptr<StorageSnapshot> RocksDBEngine::currentSnapshot() {
+  if (ADB_LIKELY(_db)) {
+    return std::make_shared<RocksDBSnapshot>(*_db);
+  } else {
+    return nullptr;
+  }
+}
+
 }  // namespace arangodb

@@ -3,6 +3,7 @@
 # we intent to remove the TypedBuffer construct soon
 add_library(arango_tests_pregel OBJECT
   DurationTest.cpp
+  PregelShardTest.cpp
   StatusTest.cpp)
 
 target_include_directories(arango_tests_pregel
@@ -12,6 +13,7 @@ target_include_directories(arango_tests_pregel
 
 target_link_libraries(arango_tests_pregel
   PRIVATE
+  arango_inspection
   gtest
   date_interface
   velocypack
@@ -28,3 +30,5 @@ target_link_libraries(arangodbtests_pregel
 
 add_test(NAME pregel
          COMMAND arangodbtests_pregel)
+
+add_subdirectory(Actor)

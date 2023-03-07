@@ -202,6 +202,14 @@ if (USE_DTRACE)
   add_definitions("-DUSE_DTRACE=1")
 endif ()
 
+# enable code coverage
+option(USE_COVERAGE "enable gcov code coverage" OFF)
+if (USE_COVERAGE)
+  add_compile_options(-fno-stack-protector -fprofile-arcs -ftest-coverage)
+  add_link_options(--coverage)
+  add_definitions("-DUSE_COVERAGE=1")
+endif ()
+
 # enable Enterprise Edition features
 set(ENTERPRISE_INCLUDE_DIR "enterprise")
 option(USE_ENTERPRISE "enable enterprise build" OFF)
@@ -466,7 +474,6 @@ endif()
 ################################################################################
 
 math(EXPR BITS "8*${CMAKE_SIZEOF_VOID_P}")
-add_definitions("-DARANGODB_BITS=${BITS}")
 
 ################################################################################
 ## COMPILER FEATURES
@@ -550,7 +557,7 @@ if (CMAKE_COMPILER_IS_CLANG AND NOT MSVC) # exclude clang-cl
 endif ()
 
 # need c++20
-# XXX this should really be set on a per target level using cmake compile_features capabilties
+# XXX this should really be set on a per target level using cmake compile_features capabilities
 set(CMAKE_CXX_STANDARD 20)
 # turn off compiler language extensions (e.g. don't use -std=gnu++20, but
 # -std=c++20).
@@ -776,7 +783,7 @@ if (NOT WINDOWS)
 endif ()
 
 # ------------------------------------------------------------------------------
-# IMPLICIT INCLUDES AND LIBIRARY DIRECTORIES
+# IMPLICIT INCLUDES AND LIBRARY DIRECTORIES
 # ------------------------------------------------------------------------------
 
 function(CREATE_FLAGS OUTPUT GLUE)
@@ -925,7 +932,7 @@ else () # NOT MSVC
   if (CMAKE_COMPILER_IS_GNUCC)
     message(STATUS "Compiler type GNU: ${CMAKE_CXX_COMPILER}")
     set(BASE_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-deprecated-declarations ${BASE_FLAGS}")
-    set(EXTRA_CXX_FLAGS "-Wsuggest-override -Wnon-virtual-dtor")
+    set(EXTRA_CXX_FLAGS "-Wsuggest-override -Wnon-virtual-dtor -Wno-error=maybe-uninitialized")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "11.1.0")
       set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-error=nonnull")
     endif()
